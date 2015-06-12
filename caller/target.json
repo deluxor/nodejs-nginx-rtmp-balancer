@@ -1,0 +1,11 @@
+{
+  "_comment": "Please update the parameters below with your own ones",
+  "edge_address": "82.199.155.27",
+  "edge_stats_address": "127.0.0.1",
+  "edge_stats_port": 8080,
+  "path": "/stat",
+  "timer": 1000,
+  "load_balancer_address": "127.0.0.1",
+  "load_balancer_port": 3030,
+  "load_balancer_key": "e2e2e2e2"
+}
