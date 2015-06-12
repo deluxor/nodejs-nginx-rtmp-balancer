@@ -1,6 +1,8 @@
 # nodejs-nginx-rtmp-balancer
 A NodeJS loadbalancing system for Nginx-rtmp
 
+Youtube video: http://youtu.be/cGJlcR3Qf9A
+
 Install:
 
 - Clone the repo to your machine;
