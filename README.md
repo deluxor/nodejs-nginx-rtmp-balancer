@@ -17,4 +17,7 @@ Configuration:
 - In receiver module open the config.json to edit your settings;
 - In caller module open target.json and change to your own settings;
 
-
+TODO:
+- Support PM2;
+- Use websockets instead of traditional request;
+- Better performance
