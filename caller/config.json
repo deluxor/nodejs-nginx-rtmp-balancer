@@ -1,7 +1,7 @@
 {
   "_comment": "Please update the parameters below with your own ones",
-  "edge_address": "XXX.XXX.XXX.XXX",
-  "edge_stats_address": "XXX.XXX.XXX.XXX",
+  "edge_address": "YYY.XXX.XXX.XXX",
+  "edge_stats_address": "XXX.YYY.XXX.XXX",
   "edge_stats_port": 3030,
   "path": "/stat",
   "timer": 1000,
