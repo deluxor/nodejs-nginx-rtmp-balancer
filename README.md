@@ -19,8 +19,7 @@ Note: If you want to run it in background use screen, ``` screen -dmS node node 
 
 Configuration:
 
-- In receiver module open the config.json to edit your settings;
-- In caller module open target.json and change to your own settings;
+- Now in both modules all the configurations are saved in a unique file called ``` config.json ``` 
 
 TODO:
 - Support PM2;
