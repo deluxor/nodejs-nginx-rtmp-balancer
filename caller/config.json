@@ -1,11 +1,11 @@
 {
   "_comment": "Please update the parameters below with your own ones",
-  "edge_address": "127.127.127.127",
-  "edge_stats_address": "127.0.0.1",
-  "edge_stats_port": 8080,
+  "edge_address": "share.ovcast.com",
+  "edge_stats_address": "share.ovcast.com",
+  "edge_stats_port": 3030,
   "path": "/stat",
   "timer": 1000,
   "load_balancer_address": "127.0.0.1",
   "load_balancer_port": 3030,
-  "load_balancer_key": "blablabla"
+  "load_balancer_key": "1e06725f825882d0636caa877c1bcf368c8fabad"
 }

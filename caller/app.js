@@ -5,93 +5,125 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var appRoot = require('app-root-path');
-//Costume modules
+
 var xml2js = require('xml2js');
 var http = require('http');
 var net = require('net');
 var fs = require("fs");
 var requestify = require('requestify');
+var router = express.Router();
+
+var app = express();
 
 var configuration = JSON.parse(
-  fs.readFileSync("target.json")
+    fs.readFileSync("config.json")
 );
+
 var options = {
-  host: configuration.edge_stats_address, //host
-  port: configuration.edge_stats_port, //port
-  path: configuration.path, //url
-  //auth: 'username:password'
+    host: configuration.edge_stats_address, //host
+    port: configuration.edge_stats_port, //port
+    path: configuration.path, //url
+    //auth: 'username:password'
 };
 var timer = 0;
 if (configuration.timer < 500) {
-  timer = 500;
+    timer = 500;
 } else {
-  timer = configuration.timer;
+    timer = configuration.timer;
 }
 var balancer = configuration.load_balancer_address;
 var balancerPort = configuration.load_balancer_port;
 var app = express();
 
-callback = function(response) {
-  var str = '';
-  response.on('data', function(chunk) {
-    str += chunk;
-  });
+var ioClient = require("socket.io-client")('http://' + configuration.load_balancer_address + ':' + configuration.load_balancer_port);
 
-  response.on('end', function() {
-    var parser = new xml2js.Parser();
-    parser.parseString(str, function(err, result) {
-      var edge = {
-        ip: configuration.edge_address,
-        uptime: result.rtmp.uptime[0],
-        accepted: result.rtmp.naccepted[0],
-        bandwidth_in: result.rtmp.bw_in[0],
-        total_traffic_in: result.rtmp.bytes_in[0],
-        bandwidth_out: result.rtmp.bw_out[0],
-        total_traffic_out: result.rtmp.bytes_out[0],
-        clients: result.rtmp.server[0].application[0].live[0].nclients[0]
-      };
-      requestify.post('http://'+balancer+':'+balancerPort+'/caller/'+configuration.load_balancer_key, edge)
-        .then(function(response) {
-          if (response) {
-            console.log(Date() + " UPDATE REQUEST SENT TO LOADBALANCER SERVER");
-          } else {
-            console.log(Date() + "CANNOT SEND REQUEST TO LOADBALANCER SERVER");
-          }
-          response.getBody();
-        });
-    });
-  });
+var packet;
+
+var Clock = {
+    totalSeconds: 0,
+
+    start: function () {
+        var self = this;
+
+        this.interval = setInterval(function () {
+            self.totalSeconds += 1;
+
+            var requ = http.request(options, callback);
+            requ.end();
+            //Remove listeners to avoid memory leaks
+            requ.removeListener('data', callback);
+            requ.removeListener('end', callback);
+
+        }, timer);
+    },
+
+    pause: function () {
+        clearInterval(this.interval);
+        delete this.interval;
+    },
+
+    resume: function () {
+        if (!this.interval) this.start();
+    }
 };
 
-//Pulls each timer the stats content
-setInterval(function() {
-  var requ = http.request(options, callback);
-  requ.end();
-  //Remove listeners to avoid memory leaks
-  requ.removeListener('data', callback);
-  requ.removeListener('end', callback);
-}, timer);
+Clock.start();
 
-app.use(logger('dev'));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({
-  extended: false
-}));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
+//Callback of the stat request and packet sending!
 
-app.use(function(req, res, next) {
-  var err = new Error('Not Found');
-  err.status = 404;
-  next(err);
+callback = function (response) {
+    var str = '';
+    response.on('data', function (chunk) {
+        str += chunk;
+    });
+
+    response.on('end', function () {
+            var parser = new xml2js.Parser();
+            parser.parseString(str, function (err, result) {
+                packet = {
+                    edge: {
+                        ip: configuration.edge_address,
+                        uptime: result.rtmp.uptime[0],
+                        accepted: result.rtmp.naccepted[0],
+                        bandwidth_in: result.rtmp.bw_in[0],
+                        total_traffic_in: result.rtmp.bytes_in[0],
+                        bandwidth_out: result.rtmp.bw_out[0],
+                        total_traffic_out: result.rtmp.bytes_out[0],
+                        clients: result.rtmp.server[0].application[0].live[0].nclients[0]
+                    },
+                    security: {
+                        key: configuration.load_balancer_key
+                    }
+                };
+
+                //send update packet containing the edge object
+                ioClient.emit('sendserver', packet);
+            });
+
+
+        }
+    )
+    ;
+}
+;
+
+//Inform client that the update was successful
+
+ioClient.on('serverUpdated', function (data) {
+    data.timestamp = Date.now();
+    console.log(data);
 });
 
-app.use(function(err, req, res, next) {
-  res.status(err.status || 500);
-  res.render('error', {
-    message: err.message,
-    error: {}
-  });
+//Inform client that has been disconnected
+ioClient.on('disconnect', function () {
+    console.log("DISCONNECTED FROM LOADBALANCER SERVER");
+    Clock.pause();
+});
+
+//Inform client that has been connected
+ioClient.on('connect', function () {
+    console.log('CONNECTED TO LOADBALANCER SERVER!');
+    Clock.resume();
 });
 
 
