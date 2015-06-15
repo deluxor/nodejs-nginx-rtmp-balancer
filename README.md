@@ -1,6 +1,11 @@
 # nodejs-nginx-rtmp-balancer
 A NodeJS loadbalancing system for Nginx-rtmp
 
+Release Notes 1.1:
+- Better Performance
+- Now using websockets to comunicate
+- Better overall stability and realibility
+
 Youtube video: http://youtu.be/cGJlcR3Qf9A
 
 Install:
@@ -19,5 +24,3 @@ Configuration:
 
 TODO:
 - Support PM2;
-- Use websockets instead of traditional request;
-- Better performance
