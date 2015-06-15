@@ -12,9 +12,9 @@ Install:
 
 - Clone the repo to your machine;
 - Open the module folder you want, caller or receiver and do ``` npm install ```
-- Then just do ``` nodejs bin/www ```
+- Then just do ``` node app.js ```
 
-Note: If you want to run it in background use screen, ``` screen -dmS node nodejs bin/www ```, and then hit ``` ctrl+a+d ``` to get out of window.
+Note: If you want to run it in background use screen, ``` screen -dmS node node app.js ```, and then hit ``` ctrl+a+d ``` to get out of window.
 
 
 Configuration:
