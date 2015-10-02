@@ -45,6 +45,8 @@ Array.prototype.min = function () {
 
 var port = normalizePort(process.env.PORT || configuration.port);
 app.set('port', port);
+//app.engine('html', require('ejs').renderFile);
+//app.set('view engine', 'jade');
 
 app.use(logger('dev'));
 app.use(bodyParser.json());
@@ -52,6 +54,16 @@ app.use(bodyParser.urlencoded({
     extended: false
 }));
 app.use(cookieParser());
+
+//CORS middleware
+var allowCrossDomain = function(req, res, next) {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+
+    next();
+};
+app.use(allowCrossDomain);
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', router);
@@ -144,9 +156,7 @@ router.get('/servers', function (req, res, next) {
 router.get('/freeserver', function (req, res, next) {
 
     var freeServer;
-    var minimum = 0;
-
-    minimum = parseInt(edge[0].clients, 10);
+    var minimum = parseInt(edge[0].clients, 10);
 
     for (var i = 0; i < edge.length; i++) {
         var clients = parseInt(edge[i].clients, 10);
