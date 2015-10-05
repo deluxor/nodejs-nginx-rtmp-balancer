@@ -1,8 +1,10 @@
+var _ = require('lodash');
 var express = require('express');
 var path = require('path');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
+var edge = require('./edge.js');
 var fs = require("fs");
 var configuration = JSON.parse(
     fs.readFileSync("config.json")
@@ -12,8 +14,6 @@ var http = require('http');
 var app = express();
 
 var router = express.Router();
-
-var edge = [];
 
 //Some logic made by me to handle the arrays
 
@@ -45,8 +45,8 @@ Array.prototype.min = function () {
 
 var port = normalizePort(process.env.PORT || configuration.port);
 app.set('port', port);
-//app.engine('html', require('ejs').renderFile);
-//app.set('view engine', 'jade');
+app.engine('html', require('ejs').renderFile);
+app.set('view engine', 'html');
 
 app.use(logger('dev'));
 app.use(bodyParser.json());
@@ -86,16 +86,17 @@ if (app.get('env') === 'development') {
         });
     });
 }
-
+else {
 // production error handler
 // no stacktraces leaked to user
-app.use(function (err, req, res, next) {
-    res.status(err.status || 500);
-    res.render('error', {
-        message: err.message,
-        error: {}
+    app.use(function (err, req, res, next) {
+        res.status(err.status || 500);
+        res.render('error', {
+            message: err.message,
+            error: {}
+        });
     });
-});
+}
 
 function normalizePort(val) {
     var port = parseInt(val, 10);
@@ -123,7 +124,7 @@ io.on('connection', function (socket) {
     socket.on('sendserver', function (packet) {
         if (packet.security.key === configuration.key) {
             packet.edge.timestamp = Date.now();
-            console.log(packet.edge);
+            //console.log(packet.edge);
             edge.pushIfNotExist(packet.edge, function (e) {
                 return e.ip === packet.edge.ip; //check if the server already exists in the array!
             });
@@ -153,17 +154,44 @@ router.get('/servers', function (req, res, next) {
     res.status(200).json(obj);
 });
 
-router.get('/freeserver', function (req, res, next) {
+router.get('/freepublisher', function (req, res, next) {
 
-    var freeServer;
-    var minimum = parseInt(edge[0].clients, 10);
+    var room = req.query.room,
+        freeServer,
+        freepublishers = _.filter(edge, {type: 'publisher'}),
+        minimum = parseInt(freepublishers[0].clients, 10);
 
-    for (var i = 0; i < edge.length; i++) {
-        var clients = parseInt(edge[i].clients, 10);
+    for (var i = 0, l = freepublishers.length; i < l; i++) {
+        var clients = parseInt(freepublishers[i].clients, 10);
 
         if (clients <= minimum) {
             minimum = clients;
-            freeServer = edge[i];
+            freeServer = freepublishers[i];
+        }
+    }
+
+    freeServer.rooms = freeServer.rooms || [];
+    freeServer.rooms.pushIfNotExist(room, function (e) {
+        return e === room; //check if the room already exists in the array!
+    });
+
+    res.status(200).json({
+        ip: freeServer.ip
+    });
+});
+
+router.get('/freebroadcaster', function (req, res, next) {
+
+    var freeServer,
+        freebrocasters = _.filter(edge, {type: 'broadcaster'}),
+        minimum = parseInt(freebrocasters[0].clients, 10);
+
+    for (var i = 0, l = freebrocasters.length; i < l; i++) {
+        var clients = parseInt(freebrocasters[i].clients, 10);
+
+        if (clients <= minimum) {
+            minimum = clients;
+            freeServer = freebrocasters[i];
         }
     }
 
@@ -171,5 +199,21 @@ router.get('/freeserver', function (req, res, next) {
         ip: freeServer.ip
     });
 });
+
+router.post('/remote_redirect', function (req, res, next) {
+    // get publisher who publish this stream
+    var publisher = _.findWhere(edge, function (e) { return e.type === 'publisher' && _.findWhere(e.rooms, req.body['name'])});
+
+    if (typeof publisher !== 'undefined') {
+        res.redirect(302, 'rtmp://' + publisher.ip + '/publish/' + req.body['name']);
+    }
+    else {
+        res.status(404).json({
+            message: 'No publisher for this stream.'
+        });
+    }
+
+});
+
 
 module.exports = app;

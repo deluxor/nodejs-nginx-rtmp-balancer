@@ -1,9 +1,9 @@
 {
   "_comment": "Please update the parameters below with your own ones",
-  "edge_address": "0.0.0.0",
-  "edge_address_rtmp_port": 1938,
-  "edge_stats_address": "127.0.0.1",
-  "edge_stats_port": 8083,
+  "edge_address": "172.17.0.74",
+  "edge_address_rtmp_port": 1935,
+  "edge_stats_port": 80,
+  "edge_type": "broadcaster",
   "path": "/stat",
   "timer": 1000,
   "load_balancer_address": "127.0.0.1",

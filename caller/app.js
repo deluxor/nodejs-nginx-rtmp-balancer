@@ -21,7 +21,6 @@ else {
         "_comment": "Please update the parameters below with your own ones",
         "edge_address": "0.0.0.0",
         "edge_address_rtmp_port": 1938,
-        "edge_stats_address": "127.0.0.1",
         "edge_stats_port": 8083,
         "path": "/stat",
         "timer": 1000,
@@ -32,7 +31,7 @@ else {
 }
 
 var options = {
-    host: nconf.get('edge_stats_address'), //host
+    host: nconf.get('edge_address'), //host
     port: nconf.get('edge_stats_port'), //port
     path: nconf.get('path') //url
     //auth: 'username:password'
@@ -99,7 +98,8 @@ callback = function (response) {
                         total_traffic_in: result.rtmp.bytes_in[0],
                         bandwidth_out: result.rtmp.bw_out[0],
                         total_traffic_out: result.rtmp.bytes_out[0],
-                        clients: result.rtmp.server[0].application[0].live[0].nclients[0]
+                        clients: result.rtmp.server[0].application[0].live[0].nclients[0],
+                        type: nconf.get('edge_type')
                     },
                     security: {
                         key: nconf.get('load_balancer_key')
