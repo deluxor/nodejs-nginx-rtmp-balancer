@@ -1,41 +1,50 @@
 /* Copyrights Deluxor 2015  */
+var nconf = require('nconf');
 var express = require('express');
 var path = require('path');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
-var appRoot = require('app-root-path');
-
 var xml2js = require('xml2js');
 var http = require('http');
 var net = require('net');
 var fs = require("fs");
-var requestify = require('requestify');
+
 var router = express.Router();
 
-var app = express();
-
-var configuration = JSON.parse(
-    fs.readFileSync("config.json")
-);
+if (process.argv.length == 3) {
+    nconf.argv().env().file(process.argv[2]);
+    configuration = nconf;
+}
+else {
+    nconf.defaults({
+        "_comment": "Please update the parameters below with your own ones",
+        "edge_address": "0.0.0.0",
+        "edge_address_rtmp_port": 1938,
+        "edge_stats_port": 8083,
+        "path": "/stat",
+        "timer": 1000,
+        "load_balancer_address": "127.0.0.1",
+        "load_balancer_port": 3131,
+        "load_balancer_key": "1e06725f825882d0636caa877c1bcf368c8fabad"
+    });
+}
 
 var options = {
-    host: configuration.edge_stats_address, //host
-    port: configuration.edge_stats_port, //port
-    path: configuration.path, //url
+    host: nconf.get('edge_address'), //host
+    port: nconf.get('edge_stats_port'), //port
+    path: nconf.get('path') //url
     //auth: 'username:password'
 };
 var timer = 0;
-if (configuration.timer < 500) {
+if (nconf.get('timer') < 500) {
     timer = 500;
 } else {
-    timer = configuration.timer;
+    timer = nconf.get('timer');
 }
-var balancer = configuration.load_balancer_address;
-var balancerPort = configuration.load_balancer_port;
 var app = express();
 
-var ioClient = require("socket.io-client")('http://' + configuration.load_balancer_address + ':' + configuration.load_balancer_port);
+var ioClient = require("socket.io-client")('http://' + nconf.get('load_balancer_address') + ':' + nconf.get('load_balancer_port'));
 
 var packet;
 
@@ -82,17 +91,18 @@ callback = function (response) {
             parser.parseString(str, function (err, result) {
                 packet = {
                     edge: {
-                        ip: configuration.edge_address,
+                        ip: nconf.get('edge_address') + ':' + nconf.get('edge_address_rtmp_port'),
                         uptime: result.rtmp.uptime[0],
                         accepted: result.rtmp.naccepted[0],
                         bandwidth_in: result.rtmp.bw_in[0],
                         total_traffic_in: result.rtmp.bytes_in[0],
                         bandwidth_out: result.rtmp.bw_out[0],
                         total_traffic_out: result.rtmp.bytes_out[0],
-                        clients: result.rtmp.server[0].application[0].live[0].nclients[0]
+                        clients: result.rtmp.server[0].application[0].live[0].nclients[0],
+                        type: nconf.get('edge_type')
                     },
                     security: {
-                        key: configuration.load_balancer_key
+                        key: nconf.get('load_balancer_key')
                     }
                 };
 
