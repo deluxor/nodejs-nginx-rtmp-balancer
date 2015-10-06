@@ -45,8 +45,8 @@ Array.prototype.min = function () {
 
 var port = normalizePort(process.env.PORT || configuration.port);
 app.set('port', port);
-app.engine('html', require('ejs').renderFile);
-app.set('view engine', 'html');
+//app.engine('html', require('ejs').renderFile);
+//app.set('view engine', 'html');
 
 app.use(logger('dev'));
 app.use(bodyParser.json());
@@ -86,17 +86,17 @@ if (app.get('env') === 'development') {
         });
     });
 }
-else {
+
 // production error handler
 // no stacktraces leaked to user
-    app.use(function (err, req, res, next) {
-        res.status(err.status || 500);
-        res.render('error', {
-            message: err.message,
-            error: {}
-        });
+app.use(function (err, req, res, next) {
+    res.status(err.status || 500);
+    res.render('error', {
+        message: err.message,
+        error: {}
     });
-}
+});
+
 
 function normalizePort(val) {
     var port = parseInt(val, 10);
@@ -154,24 +154,32 @@ router.get('/servers', function (req, res, next) {
     res.status(200).json(obj);
 });
 
-router.get('/freepublisher', function (req, res, next) {
 
-    var room = req.query.room,
-        freeServer,
-        freepublishers = _.filter(edge, {type: 'publisher'}),
-        minimum = parseInt(freepublishers[0].clients, 10);
+function get_freeserver(type) {
+    var freeServer,
+        freeServers = _.filter(edge, {type: type}),
+        minimum = parseInt(freeServers[0].clients, 10);
 
-    for (var i = 0, l = freepublishers.length; i < l; i++) {
-        var clients = parseInt(freepublishers[i].clients, 10);
+    for (var i = 0, l = freeServers.length; i < l; i++) {
+        var clients = parseInt(freeServers[i].clients, 10);
 
         if (clients <= minimum) {
             minimum = clients;
-            freeServer = freepublishers[i];
+            freeServer = freeServers[i];
         }
     }
 
-    freeServer.rooms = freeServer.rooms || [];
-    freeServer.rooms.pushIfNotExist(room, function (e) {
+    return freeServer;
+}
+
+router.get('/freepublisher', function (req, res, next) {
+
+    var room = req.query.room,
+        freeServer = get_freeserver('publisher');
+
+    var index = _.findIndex(edge, {ip: freeServer.ip});
+    edge[index].rooms = edge[index].rooms || [];
+    edge[index].rooms.pushIfNotExist(room, function (e) {
         return e === room; //check if the room already exists in the array!
     });
 
@@ -182,21 +190,8 @@ router.get('/freepublisher', function (req, res, next) {
 
 router.get('/freebroadcaster', function (req, res, next) {
 
-    var freeServer,
-        freebrocasters = _.filter(edge, {type: 'broadcaster'}),
-        minimum = parseInt(freebrocasters[0].clients, 10);
-
-    for (var i = 0, l = freebrocasters.length; i < l; i++) {
-        var clients = parseInt(freebrocasters[i].clients, 10);
-
-        if (clients <= minimum) {
-            minimum = clients;
-            freeServer = freebrocasters[i];
-        }
-    }
-
     res.status(200).json({
-        ip: freeServer.ip
+        ip: get_freeserver('broadcaster').ip
     });
 });
 
