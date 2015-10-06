@@ -174,17 +174,8 @@ function get_freeserver(type) {
 
 router.get('/freepublisher', function (req, res, next) {
 
-    var room = req.query.room,
-        freeServer = get_freeserver('publisher');
-
-    var index = _.findIndex(edge, {ip: freeServer.ip});
-    edge[index].rooms = edge[index].rooms || [];
-    edge[index].rooms.pushIfNotExist(room, function (e) {
-        return e === room; //check if the room already exists in the array!
-    });
-
     res.status(200).json({
-        ip: freeServer.ip
+        ip: get_freeserver('publisher')
     });
 });
 
@@ -197,16 +188,54 @@ router.get('/freebroadcaster', function (req, res, next) {
 
 router.post('/remote_redirect', function (req, res, next) {
     // get publisher who publish this stream
-    var publisher = _.findWhere(edge, function (e) { return e.type === 'publisher' && _.findWhere(e.rooms, req.body['name'])});
+    //FIXME
+    //get publisher with room req.body['name']
+
+    var publisher;
 
     if (typeof publisher !== 'undefined') {
         res.redirect(302, 'rtmp://' + publisher.ip + '/publish/' + req.body['name']);
     }
     else {
         res.status(404).json({
-            message: 'No publisher for this stream.'
+            message: 'No publisher found for this stream.'
         });
     }
+
+});
+
+router.post('/on_publish', function (req, res, next) {
+
+    console.log(req.body);
+
+    var room = req.body['name'],
+        publisher_ip = /rtmp:\/\/(.*):/g.exec(req.body['tcurl'])[1];
+
+    //FIXME
+    // add room to publisher if not present in it
+
+    // get publisher who publish this stream
+    res.status(200).json({
+        message: 'on_publish',
+        ip: publisher_ip
+    });
+
+});
+
+router.post('/on_publish_done', function (req, res, next) {
+    // get publisher who publish this stream
+    console.log(req.body);
+
+    var room = req.body['name'],
+        publisher_ip = /rtmp:\/\/(.*):/g.exec(req.body['tcurl'])[1];
+
+    // FIXME
+    // remove room from publisher_ip
+
+    res.status(200).json({
+        message: 'on_publish_done',
+        ip: publisher_ip
+    });
 
 });
 
