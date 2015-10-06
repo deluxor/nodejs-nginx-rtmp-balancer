@@ -4,11 +4,18 @@ var path = require('path');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
-var edge = require('./edge.js');
 var fs = require("fs");
 var configuration = JSON.parse(
     fs.readFileSync("config.json")
 );
+
+
+var client = require('./utils/redis.js');
+
+
+var edge = require('./edge.js');
+var publisher = require('./publisher.js');
+var broadcaster = require('./broadcaster.js');
 
 var http = require('http');
 var app = express();
@@ -124,7 +131,16 @@ io.on('connection', function (socket) {
     socket.on('sendserver', function (packet) {
         if (packet.security.key === configuration.key) {
             packet.edge.timestamp = Date.now();
-            //console.log(packet.edge);
+
+            var checkIfServerAlreadyExists = function(e) {
+                return e.ip === packet.edge.ip;
+            };
+
+            if (packet.edge.type === 'publisher')
+                publisher.list.pushIfNotExist(packet.edge, checkIfServerAlreadyExists);
+            else
+                broadcaster.pushIfNotExist(packet.edge, checkIfServerAlreadyExists);
+
             edge.pushIfNotExist(packet.edge, function (e) {
                 return e.ip === packet.edge.ip; //check if the server already exists in the array!
             });
@@ -137,22 +153,28 @@ io.on('connection', function (socket) {
 
 //Define routes here
 
-router.get('/servers', function (req, res, next) {
-
-    var obj = edge;
-
-    for (var i = 0; i < obj.length; i++) {
-        if ((Date.now() - obj[i].timestamp) <= configuration.timeout) { //if a server is more than 5 seconds without updating gets flagged as OFFLINE!
-            obj[i].status = 'ONLINE';
-        } else {
-            obj[i].status = 'OFFLINE';
-        }
-
-        obj[i].last_update = new Date(obj[i].timestamp);
-    }
-
-    res.status(200).json(obj);
-});
+//router.get('/servers', function (req, res, next) {
+//    var type = req.query.type;
+//
+//    if (type === 'publishers')
+//        var obj = publisher;
+//    else if (type === 'broadcasters')
+//        var obj = broadcaster;
+//    else
+//        var obj = publisher.concat(broadcaster);
+//
+//    for (var i = 0; i < obj.length; i++) {
+//        if ((Date.now() - obj[i].timestamp) <= configuration.timeout) { //if a server is more than 5 seconds without updating gets flagged as OFFLINE!
+//            obj[i].status = 'ONLINE';
+//        } else {
+//            obj[i].status = 'OFFLINE';
+//        }
+//
+//        obj[i].last_update = new Date(obj[i].timestamp);
+//    }
+//
+//    res.status(200).json(obj);
+//});
 
 
 function get_freeserver(type) {
@@ -239,5 +261,29 @@ router.post('/on_publish_done', function (req, res, next) {
 
 });
 
+
+//this.multi = client.multi();
+//this.multi.pubsub('NUMSUB', channel, _.bind(function (err, reply) {
+//    var num_subscribers = parseInt(reply[1]);
+//
+//    if (typeof user !== 'undefined' && user && num_subscribers <= user.sockets.length) { // friend sockets are connected on same server
+//        user.emit(event, data);
+//    }
+//    else if (num_subscribers) {  // friend has sockets on other servers
+//        client.publish(channel, JSON.stringify({  // publish to channel friend if exist for warning him
+//            'type': event,
+//            'data': data
+//        }));
+//    }
+//    else {
+//        // not reachable
+//    }
+//
+//    if (_.isFunction(callback)) { // execute callback if exist
+//        callback(num_subscribers);
+//    }
+//
+//}, this));
+//this.multi.exec();
 
 module.exports = app;
