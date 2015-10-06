@@ -1,6 +1,6 @@
 {
   "_comment": "Please update the parameters below with your own ones",
-  "edge_address": "172.17.0.2",
+  "edge_address": "172.17.0.6",
   "edge_address_rtmp_port": 1935,
   "edge_stats_port": 80,
   "edge_type": "publisher",

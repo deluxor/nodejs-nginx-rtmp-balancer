@@ -9,13 +9,9 @@ var configuration = JSON.parse(
     fs.readFileSync("config.json")
 );
 
-
-var client = require('./utils/redis.js');
-
-
-var edge = require('./edge.js');
-var publisher = require('./publisher.js');
-var broadcaster = require('./broadcaster.js');
+var publishers = require('./collections/publishers.js');
+var broadcasters = require('./collections/broadcasters.js');
+var helpers = require('./utils/helpers.js');
 
 var http = require('http');
 var app = express();
@@ -132,18 +128,14 @@ io.on('connection', function (socket) {
         if (packet.security.key === configuration.key) {
             packet.edge.timestamp = Date.now();
 
-            var checkIfServerAlreadyExists = function(e) {
-                return e.ip === packet.edge.ip;
-            };
+            if (packet.edge.type === 'publisher') {
+                if (!(packet.edge.ip in publishers))
+                    publishers[packet.edge.ip] = packet.edge;
+            }
+            else if (!(packet.edge.ip in broadcasters)) {
+                broadcasters[packet.edge.ip] = packet.edge;
+            }
 
-            if (packet.edge.type === 'publisher')
-                publisher.list.pushIfNotExist(packet.edge, checkIfServerAlreadyExists);
-            else
-                broadcaster.pushIfNotExist(packet.edge, checkIfServerAlreadyExists);
-
-            edge.pushIfNotExist(packet.edge, function (e) {
-                return e.ip === packet.edge.ip; //check if the server already exists in the array!
-            });
             socket.emit('serverUpdated', {updated: 'OK'});
         } else {
             socket.emit('serverUpdated', {updated: 'FAIL -> Security Key Invalid'});
@@ -152,7 +144,6 @@ io.on('connection', function (socket) {
 });
 
 //Define routes here
-
 //router.get('/servers', function (req, res, next) {
 //    var type = req.query.type;
 //
@@ -176,47 +167,49 @@ io.on('connection', function (socket) {
 //    res.status(200).json(obj);
 //});
 
+function get_freeserver_ip(type) {
 
-function get_freeserver(type) {
-    var freeServer,
-        freeServers = _.filter(edge, {type: type}),
-        minimum = parseInt(freeServers[0].clients, 10);
+    var freeServers = type === 'publisher' ? publishers : broadcasters,
+        freeServer,
+        minimum;
 
-    for (var i = 0, l = freeServers.length; i < l; i++) {
-        var clients = parseInt(freeServers[i].clients, 10);
+    for (var ip in freeServers) {
+        if (typeof minimum === 'undefined') {
+            minimum = parseInt(freeServers[ip].clients, 10);
+        }
+
+        var clients = parseInt(freeServers[ip].clients, 10);
 
         if (clients <= minimum) {
             minimum = clients;
-            freeServer = freeServers[i];
+            freeServer = freeServers[ip];
         }
     }
 
-    return freeServer;
+    return freeServer.ip;
 }
 
 router.get('/freepublisher', function (req, res, next) {
 
     res.status(200).json({
-        ip: get_freeserver('publisher')
+        ip: get_freeserver_ip('publisher')
     });
 });
 
 router.get('/freebroadcaster', function (req, res, next) {
 
     res.status(200).json({
-        ip: get_freeserver('broadcaster').ip
+        ip: get_freeserver_ip('broadcaster')
     });
 });
 
 router.post('/remote_redirect', function (req, res, next) {
     // get publisher who publish this stream
-    //FIXME
     //get publisher with room req.body['name']
+    var ip = helpers.getPublisherFromStream(req.body['name']);
 
-    var publisher;
-
-    if (typeof publisher !== 'undefined') {
-        res.redirect(302, 'rtmp://' + publisher.ip + '/publish/' + req.body['name']);
+    if (typeof ip !== 'undefined') {
+        res.redirect(302, 'rtmp://' + ip + '/publish/' + req.body['name']);
     }
     else {
         res.status(404).json({
@@ -228,13 +221,11 @@ router.post('/remote_redirect', function (req, res, next) {
 
 router.post('/on_publish', function (req, res, next) {
 
-    console.log(req.body);
-
     var room = req.body['name'],
-        publisher_ip = /rtmp:\/\/(.*):/g.exec(req.body['tcurl'])[1];
+        publisher_ip = req.body['tcurl'].match(/rtmp:\/\/([^\/]*)/)[1];
 
-    //FIXME
     // add room to publisher if not present in it
+    helpers.addStream(room, publisher_ip);
 
     // get publisher who publish this stream
     res.status(200).json({
@@ -246,13 +237,12 @@ router.post('/on_publish', function (req, res, next) {
 
 router.post('/on_publish_done', function (req, res, next) {
     // get publisher who publish this stream
-    console.log(req.body);
-
     var room = req.body['name'],
-        publisher_ip = /rtmp:\/\/(.*):/g.exec(req.body['tcurl'])[1];
+        publisher_ip = req.body['tcurl'].match(/rtmp:\/\/([^\/]*)/)[1];
 
-    // FIXME
     // remove room from publisher_ip
+    helpers.removeStream(room, publisher_ip);
+
 
     res.status(200).json({
         message: 'on_publish_done',
@@ -260,30 +250,5 @@ router.post('/on_publish_done', function (req, res, next) {
     });
 
 });
-
-
-//this.multi = client.multi();
-//this.multi.pubsub('NUMSUB', channel, _.bind(function (err, reply) {
-//    var num_subscribers = parseInt(reply[1]);
-//
-//    if (typeof user !== 'undefined' && user && num_subscribers <= user.sockets.length) { // friend sockets are connected on same server
-//        user.emit(event, data);
-//    }
-//    else if (num_subscribers) {  // friend has sockets on other servers
-//        client.publish(channel, JSON.stringify({  // publish to channel friend if exist for warning him
-//            'type': event,
-//            'data': data
-//        }));
-//    }
-//    else {
-//        // not reachable
-//    }
-//
-//    if (_.isFunction(callback)) { // execute callback if exist
-//        callback(num_subscribers);
-//    }
-//
-//}, this));
-//this.multi.exec();
 
 module.exports = app;
